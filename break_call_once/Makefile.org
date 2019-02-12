@@ -1,0 +1,76 @@
+#HIP_SRC_FILE:=hip_call_once.cc
+HIP_SRC_FILE:=hip_fifo.cc
+
+HCC:=/opt/rocm/bin/hcc -std=c++11
+
+
+all : case1 case2 case3 case4 case5a case5b
+
+
+# foo1, foo2 and hip are dynamically linked
+case1 : clean $(HIP_SRC_FILE) foo1.cc foo2.cc dyn_link.cc
+	$(HCC) -fPIC -shared -lpthread $(HIP_SRC_FILE) -DBUILD=DYNAMIC -o libhip.so
+	$(HCC) -fPIC -shared -lpthread foo1.cc -o libfoo1.so
+	$(HCC) -fPIC -shared -lpthread foo2.cc -o libfoo2.so
+	$(HCC) dyn_link.cc -L. -Wl,--rpath=. -lfoo1 -lfoo2 -lhip -o $@
+	@echo "Running $@" 
+	-./$@
+
+
+# foo1, and foo2 are dynamically linked...hip is statically linked
+case2 : clean $(HIP_SRC_FILE) foo1.cc foo2.cc dyn_link.cc
+	$(HCC) -c $(HIP_SRC_FILE) -DBUILD=STATIC -o hip_static.o && ar rcs libhip_static.a hip_static.o
+	$(HCC) -fPIC -shared -lpthread foo1.cc -o libfoo1.so
+	$(HCC) -fPIC -shared -lpthread foo2.cc -o libfoo2.so
+	$(HCC) dyn_link.cc -L. -Wl,--rpath=. -lhip_static -lfoo1 -lfoo2 -o $@
+	@echo "Running $@" 
+	-./$@
+
+
+# foo1, foo2, and hip are dynamically loaded.
+# hip is also dynamically linked (for foo1, foo2)
+case3 : clean $(HIP_SRC_FILE) foo1.cc foo2.cc dyn_load.cc
+	$(HCC) -fPIC -shared -lpthread $(HIP_SRC_FILE) -DBUILD=DYNAMIC -o libhip.so
+	$(HCC) -fPIC -shared -lpthread foo1.cc -o libfoo1.so 
+	$(HCC) -fPIC -shared -lpthread foo2.cc -o libfoo2.so 
+	$(HCC) dyn_load.cc -L. -Wl,--rpath=. -lhip -ldl -o $@
+	@echo "Running $@" 
+	-./$@
+
+
+# foo1 and foo2 are dynamically loaded...hip is statically linked
+case4 : clean $(H_SRC_FILE) foo1.cc foo2.cc sta_load_01.cc
+	$(HCC) -c $(HIP_SRC_FILE) -DBUILD=STATIC -o hip_static.o && ar rcs libhip_static.a hip_static.o
+	$(HCC) -fPIC -shared -lpthread $(HIP_SRC_FILE) -DBUILD=DYNAMIC -o libhip.so
+	$(HCC) -fPIC -shared -lpthread foo1.cc -o libfoo1.so
+	$(HCC) -fPIC -shared -lpthread foo2.cc -o libfoo2.so
+	$(HCC) sta_load_01.cc -L. -Wl,--rpath=. -ldl -lhip_static -lhip -o $@
+	@echo "Running $@" 
+	-./$@
+
+
+# foo1, foo2 and hip are dynamically loaded...hip is statically linked
+# hip is also dynamically linked (for foo1, foo2)
+case5a : clean $(H_SRC_FILE) foo1.cc foo2.cc sta_load_02.cc
+	$(HCC) -c $(HIP_SRC_FILE) -DBUILD=STATIC -o hip_static.o && ar rcs libhip_static.a hip_static.o
+	$(HCC) -fPIC -shared -lpthread $(HIP_SRC_FILE) -DBUILD=DYNAMIC -o libhip.so
+	$(HCC) -fPIC -shared -lpthread foo1.cc -o libfoo1.so
+	$(HCC) -fPIC -shared -lpthread foo2.cc -o libfoo2.so
+	 $(HCC) sta_load_02.cc -L. -lhip_static -ldl -Wl,--rpath=. -lhip -o $@
+	@echo "Running $@" 
+	-./$@
+#	-LD_DEBUG=libs,files ./$@
+
+case5b : clean $(H_SRC_FILE) foo1.cc foo2.cc sta_load_02.cc
+	$(HCC) -c $(HIP_SRC_FILE) -DBUILD=STATIC -o hip_static.o && ar rcs libhip_static.a hip_static.o
+	$(HCC) -fPIC -shared -lpthread $(HIP_SRC_FILE) -DBUILD=DYNAMIC -o libhip.so
+	$(HCC) -fPIC -shared -lpthread foo1.cc -o libfoo1.so -L. -Wl,--rpath=. -lhip 
+	$(HCC) -fPIC -shared -lpthread foo2.cc -o libfoo2.so -L. -Wl,--rpath=. -lhip 
+	 $(HCC) sta_load_02.cc -L. -lpthread -lhip_static -ldl -o $@
+	@echo "Running $@" 
+	-./$@
+#	-LD_DEBUG=libs,files ./$@
+
+clean :
+	rm -rf *.so *.a *.o case* 
+
