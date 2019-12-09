@@ -18,14 +18,16 @@ CXXFLAGS = -Wall
 #SOURCE_FILE=src/pass_array_to_device_func.cpp
 SOURCE_FILE=src/simple_test.cpp
 
-all : clean run_check.exe
+# test_runner : $(SOURCE_FILE)
+# 	KMDUMPLLVM=1 KMDUMPISA=1 $(CXX) $(CXXFLAGS) $^ -o $@
 
-run_check.exe : $(SOURCE_FILE)
-	KMDUMPLLVM=1 KMDUMPISA=1 $(CXX) $(CXXFLAGS) $^ -o $@
-	$(LLVM_DIS) dump.input.bc
+test_runner : $(SOURCE_FILE)
+	$(CXX) $(CXXFLAGS) $^ -o $@
 
-# run_check.exe : $(SOURCE_FILE)
-# 	$(CXX) $(CXXFLAGS) $^ -o $@
+run_rpt :
+	export HCC_PROFILE=2; ./test_runner 2> rpt_profile.log;  rpt rpt_profile.log --no_gaps
 
 clean :
-	rm -rf *.exe dump*
+	rm -rf *.exe dump* *.log
+
+#	$(LLVM_DIS) dump.input.bc
